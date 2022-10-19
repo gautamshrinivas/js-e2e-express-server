@@ -1,0 +1,61 @@
+pipeline {
+    agent { label 'nodejs'}
+    stages {
+        stage ('vcs') {
+            steps {
+            git url: https://github.com/gautamshrinivas/js-e2e-express-server.git,
+            branch: REL
+            }
+        }
+
+        stage ('Artifactory configuration') {
+            steps {
+                rtServer (
+                    id: "ARTIFACTORY_SERVER",
+                    url: https://gautamrck76.jfrog.io,
+                    //credentialsId: CREDENTIALS
+                )
+
+                rtNpmResolver (
+                    id: "NPM_RESOLVER",
+                    serverId: "JFROG_JENKINS",
+                    repo: "node-remote"
+                )
+
+                rtNpmDeployer (
+                    id: "NPM_DEPLOYER",
+                    serverId: "JFROG_JENKINS",
+                    repo: "node-local"
+                )
+            }
+        }
+
+        stage ('Exec npm install') {
+            steps {
+                rtNpmInstall (
+                    tool: NVM_DEFAULT, // Tool name from Jenkins configuration
+                    path: "package.json",
+                    resolverId: "NPM_RESOLVER"
+                )
+            }
+        }
+
+        stage ('Exec npm publish') {
+            steps {
+                rtNpmPublish (
+                    tool: NVM_DEFAULT, // Tool name from Jenkins configuration
+                    path: "package.json",
+                    deployerId: "NPM_DEPLOYER"
+                )
+            }
+        }
+
+        stage ('Publish build info') {
+            steps {
+                rtPublishBuildInfo (
+                    serverId: "JFROG_JENKINS"
+                )
+            }
+        }
+    }
+}
